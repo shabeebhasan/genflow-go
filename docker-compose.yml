@@ -1,0 +1,22 @@
+# Local demo without a GPU: Postgres, a fake ComfyUI and genflow.
+# For a real GPU box, drop "fakecomfy" and point COMFYUI_URL at your ComfyUI (python main.py --listen).
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: genflow }
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres"], interval: 2s, retries: 20 }
+  fakecomfy:
+    build: .
+    entrypoint: ["/fakecomfy", "-addr", ":8188", "-render", "4s"]
+  genflow:
+    build: .
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/genflow?sslmode=disable
+      COMFYUI_URL: http://fakecomfy:8188
+      WORKERS: "2"
+      MAX_QUEUE: "50"
+      DATA_DIR: /tmp/data
+    ports: ["8090:8090"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      fakecomfy: { condition: service_started }
